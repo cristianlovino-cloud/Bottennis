@@ -701,6 +701,14 @@
   <div class="section">
     <div class="section-label">05 · Jugadores</div>
     <div class="players-grid" id="playersGrid"></div>
+    <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;" id="savedPlayersBar">
+      <span style="font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);align-self:center;">Guardados:</span>
+    </div>
+    <button onclick="saveCurrentPlayers()" style="margin-top:10px;font-family:'DM Mono',monospace;font-size:10px;letter-spacing:1px;padding:6px 14px;border:1px solid var(--border);background:transparent;color:var(--muted);border-radius:2px;cursor:pointer;" 
+      onmouseover="this.style.borderColor='var(--green)';this.style.color='var(--green)'"
+      onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">
+      + GUARDAR JUGADORES ACTUALES
+    </button>
   </div>
 
   <!-- CANCHA -->
@@ -1361,7 +1369,99 @@ function loadSaved() {
   try {
     const saved = JSON.parse(localStorage.getItem('crr_bot') || '{}');
     if (saved.user) document.getElementById('user').value = saved.user;
+    renderSavedPlayers();
   } catch {}
+}
+
+// ── JUGADORES GUARDADOS ──────────────────────────────
+function getSavedPlayers() {
+  try { return JSON.parse(localStorage.getItem('crr_players') || '[]'); } catch { return []; }
+}
+
+function saveCurrentPlayers() {
+  const count = gameType === 'singles' ? 2 : 4;
+  const grupo = [];
+  for (let i = 1; i <= count; i++) {
+    const nombre = document.getElementById(`p${i}-nombre`)?.value?.trim() || '';
+    const socio  = document.getElementById(`p${i}-socio`)?.value?.trim()  || '';
+    if (nombre || socio) grupo.push({ nombre, socio });
+  }
+  if (grupo.length === 0) { log('⚠ No hay jugadores para guardar', 'warn'); return; }
+
+  // Pedir nombre al grupo (ej: "Zubi + Nachi")
+  const label = prompt('Nombre para este grupo de jugadores (ej: Zubi + Nachi):');
+  if (!label) return;
+
+  const list = getSavedPlayers();
+  list.push({ label, jugadores: grupo, tipo: gameType });
+  localStorage.setItem('crr_players', JSON.stringify(list));
+  renderSavedPlayers();
+  log(`✓ Grupo "${label}" guardado`, 'ok');
+}
+
+function renderSavedPlayers() {
+  const bar = document.getElementById('savedPlayersBar');
+  if (!bar) return;
+  const list = getSavedPlayers();
+  // Keep the "Guardados:" label
+  bar.innerHTML = '<span style="font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);align-self:center;">Guardados:</span>';
+
+  if (list.length === 0) {
+    bar.innerHTML += '<span style="font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);opacity:0.5;">ninguno aún</span>';
+    return;
+  }
+
+  list.forEach((g, idx) => {
+    const wrap = document.createElement('div');
+    wrap.style.cssText = 'display:flex;align-items:center;gap:2px;';
+
+    const btn = document.createElement('button');
+    btn.textContent = g.label;
+    btn.style.cssText = `font-family:'DM Mono',monospace;font-size:10px;letter-spacing:1px;
+      padding:5px 10px;border:1px solid var(--border);background:transparent;
+      color:var(--muted);cursor:pointer;border-radius:2px 0 0 2px;transition:all 0.15s;`;
+    btn.onmouseover = () => { btn.style.borderColor='var(--green)'; btn.style.color='var(--green)'; };
+    btn.onmouseout  = () => { btn.style.borderColor='var(--border)'; btn.style.color='var(--muted)'; };
+    btn.onclick = () => loadPlayerGroup(g);
+
+    const del = document.createElement('button');
+    del.textContent = '×';
+    del.title = 'Eliminar';
+    del.style.cssText = `font-family:'DM Mono',monospace;font-size:11px;
+      padding:5px 7px;border:1px solid var(--border);border-left:none;background:transparent;
+      color:var(--muted);cursor:pointer;border-radius:0 2px 2px 0;transition:all 0.15s;`;
+    del.onmouseover = () => { del.style.borderColor='var(--red)'; del.style.color='var(--red)'; };
+    del.onmouseout  = () => { del.style.borderColor='var(--border)'; del.style.color='var(--muted)'; };
+    del.onclick = () => deletePlayerGroup(idx);
+
+    wrap.appendChild(btn);
+    wrap.appendChild(del);
+    bar.appendChild(wrap);
+  });
+}
+
+function loadPlayerGroup(g) {
+  // Set game type
+  setType(g.tipo || 'singles');
+  // Wait a tick for DOM to rebuild
+  setTimeout(() => {
+    g.jugadores.forEach((p, i) => {
+      const ni = document.getElementById(`p${i+1}-nombre`);
+      const si = document.getElementById(`p${i+1}-socio`);
+      if (ni) ni.value = p.nombre;
+      if (si) si.value = p.socio;
+    });
+    log(`✓ Grupo "${g.label}" cargado`, 'ok');
+  }, 50);
+}
+
+function deletePlayerGroup(idx) {
+  const list = getSavedPlayers();
+  const label = list[idx]?.label;
+  list.splice(idx, 1);
+  localStorage.setItem('crr_players', JSON.stringify(list));
+  renderSavedPlayers();
+  log(`Grupo "${label}" eliminado`);
 }
 
 // Guardar usuario al escribir
