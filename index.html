@@ -662,11 +662,9 @@
   <!-- FECHA -->
   <div class="section">
     <div class="section-label">02 · Fecha</div>
-    <div class="date-row">
-      <div class="field">
-        <label>Día de reserva (hasta +72hs)</label>
-        <input type="date" id="fecha">
-      </div>
+    <div class="field">
+      <label>Día de reserva (hasta +72hs)</label>
+      <select id="fecha" style="font-size:15px;padding:10px 12px;"></select>
     </div>
     <div class="quick-dates" id="quickDates"></div>
   </div>
@@ -823,33 +821,44 @@ document.addEventListener('DOMContentLoaded', () => {
 // ══════════════════════════════════════════════════════
 function initDates() {
   const today = new Date();
-  const max = new Date(today);
-  max.setDate(today.getDate() + 3);
+  const sel = document.getElementById('fecha');
+  const qd  = document.getElementById('quickDates');
+  const days = ['DOM','LUN','MAR','MIÉ','JUE','VIE','SÁB'];
+  const labels = ['HOY','MAÑ'];
 
-  const inp = document.getElementById('fecha');
-  inp.min = fmt(today);
-  inp.max = fmt(max);
-  inp.value = fmt(today);
+  sel.innerHTML = '';
+  qd.innerHTML  = '';
 
-  const qd = document.getElementById('quickDates');
   for (let i = 0; i <= 3; i++) {
     const d = new Date(today);
     d.setDate(today.getDate() + i);
+    const val  = fmt(d);
+    const label = i < 2 ? labels[i] : days[d.getDay()];
+    const fullLabel = `${label} ${d.getDate()}/${d.getMonth()+1}`;
+
+    // Select option
+    const opt = document.createElement('option');
+    opt.value = val;
+    opt.textContent = fullLabel;
+    if (i === 0) opt.selected = true;
+    sel.appendChild(opt);
+
+    // Quick button
     const btn = document.createElement('button');
     btn.className = 'qd-btn' + (i === 0 ? ' active' : '');
-    btn.textContent = i === 0 ? 'HOY' : i === 1 ? 'MAÑ' : dayName(d);
-    btn.dataset.date = fmt(d);
+    btn.textContent = label;
+    btn.dataset.date = val;
     btn.onclick = () => {
       document.querySelectorAll('.qd-btn').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
-      inp.value = btn.dataset.date;
+      sel.value = val;
     };
     qd.appendChild(btn);
   }
 
-  inp.addEventListener('change', () => {
+  sel.addEventListener('change', () => {
     document.querySelectorAll('.qd-btn').forEach(b => {
-      b.classList.toggle('active', b.dataset.date === inp.value);
+      b.classList.toggle('active', b.dataset.date === sel.value);
     });
   });
 }
@@ -896,9 +905,12 @@ function initSlots() {
 // ══════════════════════════════════════════════════════
 function setType(type) {
   gameType = type;
-  document.getElementById('btnSingles').classList.toggle('selected', type === 'singles');
-  document.getElementById('btnDobles').classList.toggle('selected', type === 'dobles');
+  const bs = document.getElementById('btnSingles');
+  const bd = document.getElementById('btnDobles');
+  if (bs) { bs.classList.toggle('selected', type === 'singles'); }
+  if (bd) { bd.classList.toggle('selected', type === 'dobles'); }
   initPlayers(type === 'singles' ? 2 : 4);
+  renderSavedPlayers();
 }
 
 // ══════════════════════════════════════════════════════
@@ -906,24 +918,22 @@ function setType(type) {
 // ══════════════════════════════════════════════════════
 function initPlayers(count) {
   const grid = document.getElementById('playersGrid');
-  grid.innerHTML = '';
-
+  if (!grid) return;
+  let html = '';
   for (let i = 1; i <= count; i++) {
-    const row = document.createElement('div');
-    row.className = 'player-row' + (i === 1 ? ' active' : '');
-    row.innerHTML = `
+    html += `<div class="player-row${i===1?' active':''}">
       <div class="player-num">${i}</div>
       <div class="field">
         <label>Apellido y Nombre</label>
-        <input type="text" id="p${i}-nombre" placeholder="García Juan" ${i > 1 ? '' : ''}>
+        <input type="text" id="p${i}-nombre" placeholder="García Juan" autocomplete="off">
       </div>
       <div class="field">
         <label>Nro. Socio</label>
-        <input type="text" id="p${i}-socio" placeholder="00000">
+        <input type="text" id="p${i}-socio" placeholder="00000" autocomplete="off">
       </div>
-    `;
-    grid.appendChild(row);
+    </div>`;
   }
+  grid.innerHTML = html;
 }
 
 // ══════════════════════════════════════════════════════
@@ -996,7 +1006,7 @@ function getFormData() {
   return {
     user: document.getElementById('user').value.trim(),
     pass: document.getElementById('pass').value,
-    fecha: document.getElementById('fecha').value,
+    fecha: document.getElementById('fecha').value || '',
     slots: [...selectedSlots].sort(),
     gameType,
     players,
